@@ -4,16 +4,14 @@
   <meta charset="UTF-8">
   <title>Service Scheduler</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     header { padding: 10px; background: #333; color: #fff; text-align: center; }
     #controls { display: flex; justify-content: space-between; padding: 10px; }
     #techList span { margin-right: 10px; padding: 4px 6px; border-radius: 4px; color: #fff; cursor: pointer; }
-    #calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; margin: 10px; background: #ccc; }
-    .day { background: #fff; padding: 5px; min-height: 80px; position: relative; cursor: pointer; }
-    .day:hover { background: #f0f0f0; }
-    .event { position: absolute; top: 20px; left: 0; right: 0; padding: 2px; font-size: 12px; color: #fff; }
-    .hidden { display: none; }
+    #calendar { margin: 10px; }
     #monthTabs button { margin: 5px; padding: 5px 10px; }
   </style>
 </head>
@@ -27,8 +25,6 @@
     </div>
     <div id="techList"></div>
   </div>
-
-  <div id="monthTabs"></div>
   <div id="calendar"></div>
 
   <div id="techModal" style="display:none; position:fixed; top:20%; left:30%; background:white; border:1px solid #ccc; padding:10px; z-index:1000">
@@ -45,63 +41,7 @@
   <script>
     let selectedTech = null;
     let techs = JSON.parse(localStorage.getItem('techs')) || [];
-    let schedule = JSON.parse(localStorage.getItem('schedule')) || {};
-    let currentYear = 2025;
-    let currentMonth = 0;
-
-    function renderMonthTabs() {
-      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-      const tabContainer = document.getElementById("monthTabs");
-      tabContainer.innerHTML = "";
-      for (let i = 0; i < 12; i++) {
-        const btn = document.createElement("button");
-        btn.textContent = monthNames[i];
-        btn.onclick = () => {
-          currentMonth = i;
-          renderCalendar();
-        };
-        tabContainer.appendChild(btn);
-      }
-    }
-
-    function renderCalendar() {
-      const calendar = document.getElementById("calendar");
-      calendar.innerHTML = "";
-      const year = currentYear;
-      const month = currentMonth;
-      const firstDay = new Date(year, month, 1).getDay();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-      for (let i = 0; i < firstDay; i++) {
-        const filler = document.createElement("div");
-        filler.className = "day hidden";
-        calendar.appendChild(filler);
-      }
-
-      for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${year}-${month + 1}-${day}`;
-        const div = document.createElement("div");
-        div.className = "day";
-        div.innerHTML = `<strong>${day}</strong>`;
-        if (schedule[dateStr]) {
-          const ev = document.createElement("div");
-          ev.className = "event";
-          ev.textContent = schedule[dateStr].name;
-          ev.style.backgroundColor = schedule[dateStr].color;
-          div.appendChild(ev);
-        }
-        div.addEventListener("click", () => {
-          if (selectedTech) {
-            schedule[dateStr] = selectedTech;
-            saveSchedule();
-            renderCalendar();
-          } else {
-            alert("Select a technician first");
-          }
-        });
-        calendar.appendChild(div);
-      }
-    }
+    let schedule = JSON.parse(localStorage.getItem('schedule')) || [];
 
     function renderTechs() {
       const techList = document.getElementById("techList");
@@ -172,9 +112,33 @@
       localStorage.setItem("schedule", JSON.stringify(schedule));
     }
 
+    document.addEventListener('DOMContentLoaded', function () {
+      const calendarEl = document.getElementById('calendar');
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        height: 'auto',
+        selectable: true,
+        select: function (info) {
+          if (!selectedTech) {
+            alert('Select a technician first');
+            return;
+          }
+          const event = {
+            title: `(${selectedTech.name})`,
+            start: info.startStr,
+            end: info.endStr,
+            color: selectedTech.color
+          };
+          calendar.addEvent(event);
+          schedule.push(event);
+          saveSchedule();
+        },
+        events: schedule
+      });
+      calendar.render();
+    });
+
     renderTechs();
-    renderMonthTabs();
-    renderCalendar();
   </script>
 </body>
 </html>
