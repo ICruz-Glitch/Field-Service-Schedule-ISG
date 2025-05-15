@@ -12,17 +12,9 @@
     #controls { display: flex; justify-content: space-between; padding: 10px; }
     #techList span { margin-right: 10px; padding: 4px 6px; border-radius: 4px; color: #fff; cursor: pointer; }
     #calendar { margin: 10px; max-width: 1000px; margin-left: auto; margin-right: auto; }
-    .fc .fc-toolbar-title {
-      font-size: 24px;
-      font-weight: bold;
-    }
-    .fc-daygrid-day.fc-day-today {
-      background-color: #fff7cc !important;
-    }
-    .fc-col-header-cell-cushion {
-      font-weight: bold;
-      color: #333;
-    }
+    .fc .fc-toolbar-title { font-size: 24px; font-weight: bold; }
+    .fc-daygrid-day.fc-day-today { background-color: #fff7cc !important; }
+    .fc-col-header-cell-cushion { font-weight: bold; color: #333; }
   </style>
 </head>
 <body>
@@ -74,7 +66,6 @@
     function closeTechModal() {
       document.getElementById("techModal").style.display = "none";
       renderTechs();
-      calendar.refetchEvents();
     }
 
     function renderTechInputs() {
@@ -121,6 +112,11 @@
       localStorage.setItem("schedule", JSON.stringify(schedule));
     }
 
+    function refreshCalendar() {
+      calendar.removeAllEvents();
+      schedule.forEach(event => calendar.addEvent(event));
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
       const calendarEl = document.getElementById('calendar');
       calendar = new FullCalendar.Calendar(calendarEl, {
@@ -128,9 +124,18 @@
         selectable: true,
         editable: true,
         eventClick: function (info) {
-          if (confirm(`Delete event for ${info.event.title}?`)) {
-            info.event.remove();
-            schedule = schedule.filter(e => e.id !== info.event.id);
+          const newTitle = prompt('Edit note:', info.event.title);
+          if (newTitle === null) return;
+          if (newTitle === '') {
+            if (confirm(`Delete event for ${info.event.title}?`)) {
+              info.event.remove();
+              schedule = schedule.filter(e => e.id !== info.event.id);
+              saveSchedule();
+            }
+          } else {
+            info.event.setProp('title', newTitle);
+            const ev = schedule.find(e => e.id === info.event.id);
+            if (ev) ev.title = newTitle;
             saveSchedule();
           }
         },
