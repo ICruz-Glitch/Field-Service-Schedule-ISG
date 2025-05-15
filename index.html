@@ -12,7 +12,17 @@
     #controls { display: flex; justify-content: space-between; padding: 10px; }
     #techList span { margin-right: 10px; padding: 4px 6px; border-radius: 4px; color: #fff; cursor: pointer; }
     #calendar { margin: 10px; }
-    #monthTabs button { margin: 5px; padding: 5px 10px; }
+    .fc .fc-toolbar-title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .fc-daygrid-day.fc-day-today {
+      background-color: #fff7cc !important;
+    }
+    .fc-col-header-cell-cushion {
+      font-weight: bold;
+      color: #333;
+    }
   </style>
 </head>
 <body>
@@ -116,8 +126,20 @@
       const calendarEl = document.getElementById('calendar');
       const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
-        height: 'auto',
         selectable: true,
+        editable: true,
+        eventClick: function (info) {
+          if (confirm(`Delete event for ${info.event.title}?`)) {
+            info.event.remove();
+            schedule = schedule.filter(e => e.start !== info.event.startStr || e.title !== info.event.title);
+            saveSchedule();
+          }
+        },
+        headerToolbar: {
+          left: 'prev,next today',
+          center: 'title',
+          right: ''
+        },
         select: function (info) {
           if (!selectedTech) {
             alert('Select a technician first');
