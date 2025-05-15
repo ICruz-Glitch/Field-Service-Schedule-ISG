@@ -11,7 +11,7 @@
     header { padding: 10px; background: #333; color: #fff; text-align: center; }
     #controls { display: flex; justify-content: space-between; padding: 10px; }
     #techList span { margin-right: 10px; padding: 4px 6px; border-radius: 4px; color: #fff; cursor: pointer; }
-    #calendar { margin: 10px; }
+    #calendar { margin: 10px; max-width: 1000px; margin-left: auto; margin-right: auto; }
     .fc .fc-toolbar-title {
       font-size: 24px;
       font-weight: bold;
@@ -52,6 +52,7 @@
     let selectedTech = null;
     let techs = JSON.parse(localStorage.getItem('techs')) || [];
     let schedule = JSON.parse(localStorage.getItem('schedule')) || [];
+    let calendar;
 
     function renderTechs() {
       const techList = document.getElementById("techList");
@@ -72,6 +73,8 @@
 
     function closeTechModal() {
       document.getElementById("techModal").style.display = "none";
+      renderTechs();
+      calendar.refetchEvents();
     }
 
     function renderTechInputs() {
@@ -88,12 +91,10 @@
 
     function editTechName(index, newName) {
       techs[index].name = newName;
-      renderTechs();
     }
 
     function editTechColor(index, newColor) {
       techs[index].color = newColor;
-      renderTechs();
     }
 
     function addTech() {
@@ -109,12 +110,10 @@
     function removeTech(index) {
       techs.splice(index, 1);
       renderTechInputs();
-      renderTechs();
     }
 
     function saveTechs() {
       localStorage.setItem("techs", JSON.stringify(techs));
-      renderTechs();
       closeTechModal();
     }
 
@@ -124,14 +123,14 @@
 
     document.addEventListener('DOMContentLoaded', function () {
       const calendarEl = document.getElementById('calendar');
-      const calendar = new FullCalendar.Calendar(calendarEl, {
+      calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         selectable: true,
         editable: true,
         eventClick: function (info) {
           if (confirm(`Delete event for ${info.event.title}?`)) {
             info.event.remove();
-            schedule = schedule.filter(e => e.start !== info.event.startStr || e.title !== info.event.title);
+            schedule = schedule.filter(e => e.id !== info.event.id);
             saveSchedule();
           }
         },
@@ -145,8 +144,10 @@
             alert('Select a technician first');
             return;
           }
+          const note = prompt('Add a note for this assignment (optional):');
           const event = {
-            title: `(${selectedTech.name})`,
+            id: Date.now().toString(),
+            title: `(${selectedTech.name})${note ? ' - ' + note : ''}`,
             start: info.startStr,
             end: info.endStr,
             color: selectedTech.color
