@@ -159,13 +159,13 @@
             if (confirm(`Delete event for ${info.event.title}?`)) {
               info.event.remove();
               schedule = schedule.filter(e => e.id !== info.event.id);
-              saveSchedule();
+              saveToStorage();
             }
           } else {
             info.event.setProp('title', newTitle);
             const ev = schedule.find(e => e.id === info.event.id);
             if (ev) ev.title = newTitle;
-            saveSchedule();
+            saveToStorage();
           }
         },
         headerToolbar: {
@@ -188,7 +188,7 @@
           };
           calendar.addEvent(event);
           schedule.push(event);
-          saveSchedule();
+          saveToStorage();
         },
         events: schedule,
         datesSet: function() {
