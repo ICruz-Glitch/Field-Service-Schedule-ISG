@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Field Service Scheduler</title>
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    #calendar { max-width: 1200px; margin: 20px auto; }
+    .fc-event { color: white; border: none; cursor: pointer; }
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border: 1px solid #ccc;
+      display: none;
+      z-index: 1000;
+    }
+    .modal input, .modal select, .modal textarea { display: block; margin-bottom: 10px; width: 100%; }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <div id='calendar'></div>
+  <div class="overlay" id="overlay"></div>
+  <div class="modal" id="eventModal">
+    <input type="text" id="client" placeholder="Client Name">
+    <input type="text" id="time" placeholder="Time (e.g. 9:00 AM)">
+    <select id="tech">
+      <option value="Carlos">Carlos</option>
+      <option value="Michael">Michael</option>
+      <option value="Barto">Barto</option>
+      <option value="John">John</option>
+      <option value="Frank">Frank</option>
+    </select>
+    <textarea id="notes" placeholder="Notes"></textarea>
+    <button onclick="saveEvent()">Save</button>
+    <button onclick="deleteEvent()">Delete</button>
+    <button onclick="closeModal()">Cancel</button>
+  </div>
+
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+  <script>
+    let calendar;
+    let currentEvent = null;
+    const colorMap = {
+      'Carlos': '#e74c3c',
+      'Michael': '#3498db',
+      'Barto': '#2ecc71',
+      'John': '#f1c40f',
+      'Frank': '#9b59b6'
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const calendarEl = document.getElementById('calendar');
+      calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        selectable: true,
+        editable: true,
+        select: function (info) {
+          openModal(info.startStr, info.endStr);
+        },
+        eventClick: function (info) {
+          currentEvent = info.event;
+          document.getElementById('client').value = info.event.extendedProps.client || '';
+          document.getElementById('time').value = info.event.extendedProps.time || '';
+          document.getElementById('tech').value = info.event.extendedProps.tech || '';
+          document.getElementById('notes').value = info.event.extendedProps.notes || '';
+          openModal(info.event.startStr);
+        },
+        events: JSON.parse(localStorage.getItem('calendarEvents') || '[]')
+      });
+      calendar.render();
+    });
+
+    function openModal(startStr, endStr) {
+      document.getElementById('overlay').style.display = 'block';
+      document.getElementById('eventModal').style.display = 'block';
+      currentEvent = currentEvent || { startStr, endStr };
+    }
+
+    function closeModal() {
+      document.getElementById('overlay').style.display = 'none';
+      document.getElementById('eventModal').style.display = 'none';
+      currentEvent = null;
+      document.getElementById('client').value = '';
+      document.getElementById('time').value = '';
+      document.getElementById('tech').value = '';
+      document.getElementById('notes').value = '';
+    }
+
+    function saveEvent() {
+      const client = document.getElementById('client').value;
+      const time = document.getElementById('time').value;
+      const tech = document.getElementById('tech').value;
+      const notes = document.getElementById('notes').value;
+      const title = `${time} - ${client}\n(${tech})`;
+      const color = colorMap[tech] || '#7f8c8d';
+
+      if (currentEvent.id) calendar.getEventById(currentEvent.id).remove();
+
+      const newEvent = {
+        id: String(Date.now()),
+        title,
+        start: currentEvent.startStr,
+        end: currentEvent.endStr,
+        allDay: true,
+        backgroundColor: color,
+        extendedProps: { client, time, tech, notes }
+      };
+
+      calendar.addEvent(newEvent);
+      saveToStorage();
+      closeModal();
+    }
+
+    function deleteEvent() {
+      if (currentEvent.id) {
+        calendar.getEventById(currentEvent.id).remove();
+        saveToStorage();
+      }
+      closeModal();
+    }
+
+    function saveToStorage() {
+      const events = calendar.getEvents().map(e => ({
+        id: e.id,
+        title: e.title,
+        start: e.startStr,
+        end: e.endStr,
+        allDay: e.allDay,
+        backgroundColor: e.backgroundColor,
+        extendedProps: e.extendedProps
+      }));
+      localStorage.setItem('calendarEvents', JSON.stringify(events));
+    }
+  </script>
+</body>
+</html>
