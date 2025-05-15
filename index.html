@@ -9,12 +9,34 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
     header { padding: 10px; background: #333; color: #fff; text-align: center; }
-    #controls { display: flex; justify-content: space-between; padding: 10px; }
-    #techList span { margin-right: 10px; padding: 4px 6px; border-radius: 4px; color: #fff; cursor: pointer; }
-    #calendar { margin: 10px; max-width: 1000px; margin-left: auto; margin-right: auto; }
+    #controls { display: flex; justify-content: space-between; padding: 10px; flex-wrap: wrap; }
+    #techList span {
+      margin-right: 10px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      color: #fff;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    #techList span.selected {
+      border-color: #000;
+    }
+    #calendar { margin: 10px auto; max-width: 1000px; }
     .fc .fc-toolbar-title { font-size: 24px; font-weight: bold; }
     .fc-daygrid-day.fc-day-today { background-color: #fff7cc !important; }
     .fc-col-header-cell-cushion { font-weight: bold; color: #333; }
+    #techModal {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 1px solid #ccc;
+      padding: 15px;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>
@@ -29,7 +51,7 @@
   </div>
   <div id="calendar"></div>
 
-  <div id="techModal" style="display:none; position:fixed; top:20%; left:30%; background:white; border:1px solid #ccc; padding:10px; z-index:1000">
+  <div id="techModal">
     <h3>Edit Technicians</h3>
     <div id="techInputs"></div>
     <input id="newTechName" placeholder="Technician name">
@@ -41,7 +63,7 @@
   </div>
 
   <script>
-    let selectedTech = null;
+    let selectedTech = JSON.parse(localStorage.getItem('selectedTech')) || null;
     let techs = JSON.parse(localStorage.getItem('techs')) || [];
     let schedule = JSON.parse(localStorage.getItem('schedule')) || [];
     let calendar;
@@ -53,7 +75,14 @@
         const span = document.createElement("span");
         span.textContent = t.name;
         span.style.backgroundColor = t.color;
-        span.onclick = () => selectedTech = t;
+        if (selectedTech && selectedTech.name === t.name) {
+          span.classList.add('selected');
+        }
+        span.onclick = () => {
+          selectedTech = t;
+          localStorage.setItem('selectedTech', JSON.stringify(t));
+          renderTechs();
+        };
         techList.appendChild(span);
       });
     }
@@ -73,9 +102,9 @@
       container.innerHTML = "";
       techs.forEach((t, i) => {
         const div = document.createElement("div");
-        div.innerHTML = `<input value="${t.name}" onchange="editTechName(${i}, this.value)"> 
-                          <input type="color" value="${t.color}" onchange="editTechColor(${i}, this.value)"> 
-                          <button onclick="removeTech(${i})">Remove</button>`;
+        div.innerHTML = `<input value="${t.name}" onchange="editTechName(${i}, this.value)">
+                         <input type="color" value="${t.color}" onchange="editTechColor(${i}, this.value)">
+                         <button onclick="removeTech(${i})">Remove</button>`;
         container.appendChild(div);
       });
     }
@@ -113,7 +142,7 @@
     }
 
     function refreshCalendar() {
-      calendar.removeAllEvents();
+      calendar.getEvents().forEach(e => e.remove());
       schedule.forEach(event => calendar.addEvent(event));
     }
 
@@ -161,12 +190,17 @@
           schedule.push(event);
           saveSchedule();
         },
-        events: schedule
+        events: schedule,
+        datesSet: function() {
+          // Highlight current month
+          const currentMonth = new Date().toISOString().slice(0, 7);
+          document.querySelectorAll(`.fc-day[data-date^="${currentMonth}"]`)
+            .forEach(el => el.style.backgroundColor = '#f0f8ff');
+        }
       });
       calendar.render();
+      renderTechs();
     });
-
-    renderTechs();
   </script>
 </body>
 </html>
