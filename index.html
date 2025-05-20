@@ -14,8 +14,7 @@
       transform: translate(-50%, -50%);
       background: #fff; padding: 20px; border: 1px solid #ccc;
       display: none; z-index: 1000;
-      max-width: 400px;
-      width: 90%;
+      max-width: 400px; width: 90%;
     }
     .modal input, .modal select, .modal textarea, .modal button { display: block; margin-bottom: 10px; width: 100%; }
     .overlay {
@@ -28,8 +27,12 @@
       display: block; margin: 10px auto; padding: 8px 12px; font-size: 16px;
     }
     #techList { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; }
-    #techList li { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
-    #techList button { width: auto; padding: 2px 6px; font-size: 14px; }
+    #techList li { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    #techList li span { display: flex; align-items: center; }
+    #techList li span .color-box {
+      display: inline-block; width: 14px; height: 14px; margin-right: 6px; border: 1px solid #ccc;
+    }
+    #techList input[type="color"] { width: 40px; height: 24px; padding: 0; border: none; }
   </style>
 </head>
 <body>
@@ -63,43 +66,64 @@
     let calendar;
     let currentEvent = null;
     let technicians = [];
+    const defaultColors = {
+      'Carlos': '#e74c3c',
+      'Michael': '#3498db',
+      'Barto': '#2ecc71',
+      'John': '#f1c40f',
+      'Frank': '#9b59b6'
+    };
 
-    // Load technicians from storage or default
     function loadTechnicians() {
       const stored = JSON.parse(localStorage.getItem('technicians') || 'null');
-      technicians = Array.isArray(stored) && stored.length ? stored : ['Carlos','Michael','Barto','John','Frank'];
+      if (Array.isArray(stored) && stored.length) {
+        technicians = stored;
+      } else {
+        technicians = Object.entries(defaultColors).map(([name, color]) => ({ name, color }));
+      }
       localStorage.setItem('technicians', JSON.stringify(technicians));
     }
 
-    // Save technicians
     function saveTechnicians() {
       localStorage.setItem('technicians', JSON.stringify(technicians));
       renderTechOptions();
       renderTechList();
     }
 
-    // Render technician <select> options
     function renderTechOptions() {
       const techSelect = document.getElementById('tech');
       techSelect.innerHTML = '';
-      technicians.forEach(name => {
+      technicians.forEach(t => {
         const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
+        opt.value = t.name;
+        opt.textContent = t.name;
+        opt.style.backgroundColor = t.color;
         techSelect.appendChild(opt);
       });
     }
 
-    // Render technician list in settings modal
     function renderTechList() {
       const list = document.getElementById('techList');
       list.innerHTML = '';
-      technicians.forEach((name, idx) => {
+      technicians.forEach((t, idx) => {
         const li = document.createElement('li');
-        li.textContent = name;
+        const span = document.createElement('span');
+        const box = document.createElement('span');
+        box.className = 'color-box';
+        box.style.backgroundColor = t.color;
+        span.appendChild(box);
+        span.appendChild(document.createTextNode(t.name));
+        li.appendChild(span);
+
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = t.color;
+        colorInput.oninput = () => updateTechColor(idx, colorInput.value);
+        li.appendChild(colorInput);
+
         const btn = document.createElement('button');
         btn.textContent = 'Remove';
-        btn.onclick = () => { removeTech(idx); };
+        btn.onclick = () => removeTech(idx);
         li.appendChild(btn);
         list.appendChild(li);
       });
@@ -108,8 +132,8 @@
     function addTech() {
       const input = document.getElementById('newTech');
       const name = input.value.trim();
-      if (name && !technicians.includes(name)) {
-        technicians.push(name);
+      if (name && !technicians.some(t => t.name === name)) {
+        technicians.push({ name, color: '#7f8c8d' });
         saveTechnicians();
         input.value = '';
       }
@@ -120,26 +144,32 @@
       saveTechnicians();
     }
 
-    // Modal controls
+    function updateTechColor(index, color) {
+      technicians[index].color = color;
+      saveTechnicians();
+    }
+
     function openModal() {
       document.getElementById('overlay').style.display = 'block';
       document.getElementById('eventModal').style.display = 'block';
     }
+
     function closeModal() {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('eventModal').style.display = 'none';
       currentEvent = null;
     }
+
     function openTechModal() {
       document.getElementById('overlay').style.display = 'block';
       document.getElementById('techModal').style.display = 'block';
     }
+
     function closeTechModal() {
       document.getElementById('overlay').style.display = 'none';
       document.getElementById('techModal').style.display = 'none';
     }
 
-    // Calendar setup
     document.addEventListener('DOMContentLoaded', function () {
       loadTechnicians();
       renderTechOptions();
@@ -167,7 +197,7 @@
           document.getElementById('time').value = e.extendedProps.time || '';
           document.getElementById('notes').value = e.extendedProps.notes || '';
           renderTechOptions();
-          document.getElementById('tech').value = e.extendedProps.tech || technicians[0];
+          document.getElementById('tech').value = e.extendedProps.tech || technicians[0].name;
           openModal();
         },
         events: JSON.parse(localStorage.getItem('calendarEvents') || '[]')
@@ -178,10 +208,11 @@
     function saveEvent() {
       const client = document.getElementById('client').value.trim();
       const time = document.getElementById('time').value.trim();
-      const tech = document.getElementById('tech').value;
+      const techName = document.getElementById('tech').value;
       const notes = document.getElementById('notes').value.trim();
-      const title = `${time} - ${client} (${tech})`;
-      const color = (window.colorMap || {})[tech] || '#7f8c8d';
+      const techObj = technicians.find(t => t.name === techName) || { color: '#7f8c8d' };
+      const title = `${time} - ${client} (${techName})`;
+      const color = techObj.color;
 
       if (currentEvent && !currentEvent.isNew) {
         const old = calendar.getEventById(currentEvent.id);
@@ -194,7 +225,7 @@
         end: currentEvent.endStr,
         allDay: true,
         backgroundColor: color,
-        extendedProps: { client, time, tech, notes }
+        extendedProps: { client, time, tech: techName, notes }
       });
       saveToStorage();
       closeModal();
