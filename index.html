@@ -14,84 +14,160 @@
       transform: translate(-50%, -50%);
       background: #fff; padding: 20px; border: 1px solid #ccc;
       display: none; z-index: 1000;
+      max-width: 400px;
+      width: 90%;
     }
-    .modal input, .modal select, .modal textarea {
-      display: block; margin-bottom: 10px; width: 100%;
-    }
+    .modal input, .modal select, .modal textarea, .modal button { display: block; margin-bottom: 10px; width: 100%; }
     .overlay {
       position: fixed; top: 0; left: 0;
       width: 100vw; height: 100vh;
       background: rgba(0, 0, 0, 0.5);
       display: none; z-index: 999;
     }
+    #techSettingsBtn {
+      display: block; margin: 10px auto; padding: 8px 12px; font-size: 16px;
+    }
+    #techList { list-style: none; padding: 0; max-height: 200px; overflow-y: auto; }
+    #techList li { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    #techList button { width: auto; padding: 2px 6px; font-size: 14px; }
   </style>
 </head>
 <body>
+  <button id="techSettingsBtn">Technician Settings</button>
   <div id="calendar"></div>
 
   <div class="overlay" id="overlay"></div>
+
+  <!-- Event Modal -->
   <div class="modal" id="eventModal">
     <input type="text" id="client" placeholder="Client Name">
     <input type="text" id="time" placeholder="Time (e.g. 9:00 AM)">
-    <select id="tech">
-      <option value="Carlos">Carlos</option>
-      <option value="Michael">Michael</option>
-      <option value="Barto">Barto</option>
-      <option value="John">John</option>
-      <option value="Frank">Frank</option>
-    </select>
+    <select id="tech"></select>
     <textarea id="notes" placeholder="Notes"></textarea>
     <button onclick="saveEvent()">Save</button>
     <button onclick="deleteEvent()">Delete</button>
     <button onclick="closeModal()">Cancel</button>
   </div>
 
+  <!-- Technician Settings Modal -->
+  <div class="modal" id="techModal">
+    <h3>Manage Technicians</h3>
+    <input type="text" id="newTech" placeholder="New Technician Name">
+    <button onclick="addTech()">Add Technician</button>
+    <ul id="techList"></ul>
+    <button onclick="closeTechModal()">Close</button>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <script>
     let calendar;
     let currentEvent = null;
-    const colorMap = {
-      'Carlos': '#e74c3c',
-      'Michael': '#3498db',
-      'Barto': '#2ecc71',
-      'John': '#f1c40f',
-      'Frank': '#9b59b6'
-    };
+    let technicians = [];
 
+    // Load technicians from storage or default
+    function loadTechnicians() {
+      const stored = JSON.parse(localStorage.getItem('technicians') || 'null');
+      technicians = Array.isArray(stored) && stored.length ? stored : ['Carlos','Michael','Barto','John','Frank'];
+      localStorage.setItem('technicians', JSON.stringify(technicians));
+    }
+
+    // Save technicians
+    function saveTechnicians() {
+      localStorage.setItem('technicians', JSON.stringify(technicians));
+      renderTechOptions();
+      renderTechList();
+    }
+
+    // Render technician <select> options
+    function renderTechOptions() {
+      const techSelect = document.getElementById('tech');
+      techSelect.innerHTML = '';
+      technicians.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        techSelect.appendChild(opt);
+      });
+    }
+
+    // Render technician list in settings modal
+    function renderTechList() {
+      const list = document.getElementById('techList');
+      list.innerHTML = '';
+      technicians.forEach((name, idx) => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        const btn = document.createElement('button');
+        btn.textContent = 'Remove';
+        btn.onclick = () => { removeTech(idx); };
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    function addTech() {
+      const input = document.getElementById('newTech');
+      const name = input.value.trim();
+      if (name && !technicians.includes(name)) {
+        technicians.push(name);
+        saveTechnicians();
+        input.value = '';
+      }
+    }
+
+    function removeTech(index) {
+      technicians.splice(index, 1);
+      saveTechnicians();
+    }
+
+    // Modal controls
+    function openModal() {
+      document.getElementById('overlay').style.display = 'block';
+      document.getElementById('eventModal').style.display = 'block';
+    }
+    function closeModal() {
+      document.getElementById('overlay').style.display = 'none';
+      document.getElementById('eventModal').style.display = 'none';
+      currentEvent = null;
+    }
+    function openTechModal() {
+      document.getElementById('overlay').style.display = 'block';
+      document.getElementById('techModal').style.display = 'block';
+    }
+    function closeTechModal() {
+      document.getElementById('overlay').style.display = 'none';
+      document.getElementById('techModal').style.display = 'none';
+    }
+
+    // Calendar setup
     document.addEventListener('DOMContentLoaded', function () {
+      loadTechnicians();
+      renderTechOptions();
+      renderTechList();
+
+      document.getElementById('techSettingsBtn').addEventListener('click', openTechModal);
+
       const calendarEl = document.getElementById('calendar');
       calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         selectable: true,
         editable: true,
         select: function (info) {
-          // prepare a brand-new event
-          currentEvent = {
-            id: null,
-            startStr: info.startStr,
-            endStr: info.endStr,
-            isNew: true
-          };
-          // clear modal fields
+          currentEvent = { id: null, startStr: info.startStr, endStr: info.endStr, isNew: true };
           document.getElementById('client').value = '';
           document.getElementById('time').value = '';
-          document.getElementById('tech').value = 'Carlos';
           document.getElementById('notes').value = '';
+          renderTechOptions();
           openModal();
         },
         eventClick: function (info) {
           const e = info.event;
-          // prepare edit of existing event
-          currentEvent = {
-            id: e.id,
-            startStr: e.startStr,
-            endStr: e.endStr,
-            isNew: false
-          };
+          currentEvent = { id: e.id, startStr: e.startStr, endStr: e.endStr, isNew: false };
           document.getElementById('client').value = e.extendedProps.client || '';
           document.getElementById('time').value = e.extendedProps.time || '';
-          document.getElementById('tech').value = e.extendedProps.tech || '';
           document.getElementById('notes').value = e.extendedProps.notes || '';
+          renderTechOptions();
+          document.getElementById('tech').value = e.extendedProps.tech || technicians[0];
           openModal();
         },
         events: JSON.parse(localStorage.getItem('calendarEvents') || '[]')
@@ -99,65 +175,43 @@
       calendar.render();
     });
 
-    function openModal() {
-      document.getElementById('overlay').style.display = 'block';
-      document.getElementById('eventModal').style.display = 'block';
-    }
-
-    function closeModal() {
-      document.getElementById('overlay').style.display = 'none';
-      document.getElementById('eventModal').style.display = 'none';
-      currentEvent = null;
-    }
-
     function saveEvent() {
       const client = document.getElementById('client').value.trim();
       const time = document.getElementById('time').value.trim();
       const tech = document.getElementById('tech').value;
       const notes = document.getElementById('notes').value.trim();
       const title = `${time} - ${client} (${tech})`;
-      const color = colorMap[tech] || '#7f8c8d';
+      const color = (window.colorMap || {})[tech] || '#7f8c8d';
 
-      // if editing, remove old instance
       if (currentEvent && !currentEvent.isNew) {
         const old = calendar.getEventById(currentEvent.id);
         if (old) old.remove();
       }
-
-      // assign stable id
       const id = currentEvent.id || String(Date.now());
-
       calendar.addEvent({
-        id,
-        title,
+        id, title,
         start: currentEvent.startStr,
         end: currentEvent.endStr,
         allDay: true,
         backgroundColor: color,
         extendedProps: { client, time, tech, notes }
       });
-
       saveToStorage();
       closeModal();
     }
 
     function deleteEvent() {
-      if (currentEvent && !currentEvent.isNew && currentEvent.id) {
+      if (currentEvent && !currentEvent.isNew) {
         const e = calendar.getEventById(currentEvent.id);
-        if (e) {
-          e.remove();
-          saveToStorage();
-        }
+        if (e) { e.remove(); saveToStorage(); }
       }
       closeModal();
     }
 
     function saveToStorage() {
       const data = calendar.getEvents().map(e => ({
-        id: e.id,
-        title: e.title,
-        start: e.startStr,
-        end: e.endStr,
+        id: e.id, title: e.title,
+        start: e.startStr, end: e.endStr,
         allDay: e.allDay,
         backgroundColor: e.backgroundColor,
         extendedProps: e.extendedProps
